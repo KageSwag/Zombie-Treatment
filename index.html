@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b1d16"><title>درمان زامبی</title>
+<style>
+*{box-sizing:border-box;margin:0}html,body{height:100%;overflow:hidden;background:#0b1d16;font-family:system-ui,sans-serif;color:#eafff3;touch-action:none;user-select:none}
+canvas{display:block}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b1d16f2;text-align:center;padding:20px;z-index:5}
+input,button{font:inherit;padding:12px 16px;border-radius:12px;border:0;font-size:18px}
+input{background:#16342a;color:#fff;text-align:center;width:min(280px,80vw)}
+button{background:#3ddc84;color:#06231a;font-weight:700;min-width:200px}button.s{background:#16342a;color:#3ddc84}
+#hud{position:fixed;top:env(safe-area-inset-top,0);left:0;right:0;padding:8px 12px;display:flex;justify-content:space-between;font-size:20px;pointer-events:none;text-shadow:0 1px 3px #000}
+#hint{position:fixed;bottom:18px;left:0;right:0;text-align:center;font-size:18px;pointer-events:none;text-shadow:0 1px 3px #000}
+#msg{position:fixed;top:28%;left:0;right:0;text-align:center;font-size:24px;font-weight:700;padding:0 20px;display:none;z-index:4;text-shadow:0 2px 6px #000}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="hud"><span id="inv"></span><span id="top"></span></div>
+<div id="msg"><div id="mt" style="margin-bottom:14px"></div><button id="go">شروع بازی ▶</button></div>
+<div id="hint"></div>
+<div class="ov" id="menu"><h1>🧟 درمان زامبی</h1><div id="me"></div><input id="nm" placeholder="اسمت" maxlength="12"><input id="cd" placeholder="کد اتاق (۴ حرف)" maxlength="4" dir="ltr"><button id="b1">ورود به اتاق</button><button class="s" id="b2">ساخت اتاق جدید</button><div id="stat"></div></div>
+<script>
+const $=i=>document.getElementById(i),cv=$('c'),g=cv.getContext('2d'),K=['🦠','🧬','⚗️'],W=1600,H=1000,ST={x:800,y:500};
+const cl=(v,a,b)=>Math.min(b,Math.max(a,v));
+let ws,me,S,my,pos={x:800,y:920},P={},Z={x:800,y:200,tx:800,ty:200},coins=+localStorage.zc||0,title=localStorage.zt||'',jx=0,jy=0,kx=0,ky=0,jt=null,jo=null,toast='',tt=0;
+$('nm').value=localStorage.zn||'';
+const ref=()=>$('me').textContent='🪙 '+coins+(title?' | '+title:'');ref();
+const say=t=>{toast=t;tt=performance.now()+2200};
+function size(){cv.width=innerWidth;cv.height=innerHeight}onresize=size;size();
+function join(c){localStorage.zn=$('nm').value;$('stat').textContent='در حال اتصال... (بار اول ممکنه ۳۰ ثانیه طول بکشه)';
+ ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host);
+ ws.onopen=()=>ws.send(JSON.stringify({t:'j',n:$('nm').value||'بازیکن',b:title,c}));
+ ws.onclose=()=>{$('menu').style.display='flex';$('stat').textContent='اتصال قطع شد، دوباره وارد شو';me=0;S=my=null;P={}};
+ ws.onmessage=e=>{const m=JSON.parse(e.data);
+  if(m.t=='j'){me=m.id;$('menu').style.display='none'}
+  else if(m.t=='s'){S=m;const seen={};
+   for(const p of m.p){seen[p.i]=1;const o=P[p.i]||(P[p.i]={x:p.x,y:p.y});o.tx=p.x;o.ty=p.y;o.d=p;if(p.i==me)my=p}
+   for(const k in P)if(!seen[k])delete P[k];
+   Z.tx=m.z[0];Z.ty=m.z[1];if(my&&Math.hypot(my.x-pos.x,my.y-pos.y)>250){pos.x=my.x;pos.y=my.y}}
+  else if(m.t=='e'){if(m.k=='item'){coins+=10;say('+10 🪙')}else if(m.k=='bite')say('زامبی گازت گرفت! 😱')
+   else if(m.k=='cure'){coins+=100;title=m.tm<45?'⚡ دکتر سریع':m.tm<90?'🩺 پزشک ماهر':'🧟 شکارچی زامبی';localStorage.zt=title;say('+100 🪙 '+title)}
+   localStorage.zc=coins;ref()}}}
+$('b1').onclick=()=>join($('cd').value.toUpperCase());$('b2').onclick=()=>join('');$('go').onclick=()=>ws.send('{"t":"s"}');
+cv.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];if(jt==null){jt=t.identifier;jo={x:t.clientX,y:t.clientY,cx:t.clientX,cy:t.clientY}}},{passive:false});
+cv.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier==jt){const dx=t.clientX-jo.x,dy=t.clientY-jo.y,l=Math.hypot(dx,dy)||1,m=Math.min(l,55);jo.cx=jo.x+dx/l*m;jo.cy=jo.y+dy/l*m;jx=dx/l*m/55;jy=dy/l*m/55}},{passive:false});
+const te=e=>{for(const t of e.changedTouches)if(t.identifier==jt){jt=null;jo=null;jx=jy=0}};cv.addEventListener('touchend',te);cv.addEventListener('touchcancel',te);
+const kd={};onkeydown=onkeyup=e=>{kd[e.key.toLowerCase()]=e.type=='keydown';kx=(kd.d||kd.arrowright?1:0)-(kd.a||kd.arrowleft?1:0);ky=(kd.s||kd.arrowdown?1:0)-(kd.w||kd.arrowup?1:0)};
+const em=(s,x,y,f)=>{g.font=f+'px serif';g.fillText(s,x,y)},lb=(s,x,y,c='#fff')=>{g.font='bold 15px system-ui';g.fillStyle=c;g.fillText(s,x,y)};
+const dot=(x,y,r,c)=>{g.fillStyle=c;g.beginPath();g.arc(x,y,r,0,7);g.fill()};
+let last=performance.now(),acc=0;
+function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;
+ if(S&&my){if(S.st=='play'&&!my.s){let dx=jx+kx,dy=jy+ky;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}pos.x=cl(pos.x+dx*190*dt,20,W-20);pos.y=cl(pos.y+dy*190*dt,20,H-20)}
+  acc+=dt;if(acc>.05&&ws.readyState==1){acc=0;ws.send(JSON.stringify({t:'m',x:pos.x|0,y:pos.y|0}))}}
+ for(const k in P){const o=P[k];if(k==me){o.x=pos.x;o.y=pos.y}else{o.x+=(o.tx-o.x)*.3;o.y+=(o.ty-o.y)*.3}}
+ Z.x+=(Z.tx-Z.x)*.25;Z.y+=(Z.ty-Z.y)*.25;draw();requestAnimationFrame(loop)}
+function draw(){const w=cv.width,h=cv.height;g.fillStyle='#0b1d16';g.fillRect(0,0,w,h);if(!S||!my)return;
+ const cx=W<=w?(W-w)/2:cl(pos.x-w/2,0,W-w),cy=H<=h?(H-h)/2:cl(pos.y-h/2,0,H-h);
+ g.save();g.translate(-cx,-cy);g.fillStyle='#10291f';g.fillRect(0,0,W,H);
+ g.strokeStyle='#1b4636';g.lineWidth=1;g.beginPath();for(let x=0;x<=W;x+=100){g.moveTo(x,0);g.lineTo(x,H)}for(let y=0;y<=H;y+=100){g.moveTo(0,y);g.lineTo(W,y)}g.stroke();
+ g.strokeStyle='#3ddc84';g.lineWidth=4;g.strokeRect(0,0,W,H);g.textAlign='center';g.textBaseline='middle';
+ dot(ST.x,ST.y,70,'#3ddc8430');em('🧪',ST.x,ST.y,48);lb('ایستگاه ساخت',ST.x,ST.y+58);
+ for(const i of S.i){dot(i[2],i[3],20,'#ffffff18');em(K[i[1]],i[2],i[3],26)}
+ dot(Z.x,Z.y,34,'#7bff4a30');em('🧟',Z.x,Z.y,50);
+ for(const k in P){const o=P[k],p=o.d;dot(o.x,o.y,21,'hsl('+(k*67%360)+',70%,45%)');if(k==me){g.strokeStyle='#fff';g.lineWidth=3;g.beginPath();g.arc(o.x,o.y,23,0,7);g.stroke()}
+  em('🧑‍🔬',o.x,o.y,26);lb((p.b?p.b.slice(0,2)+' ':'')+p.n,o.x,o.y-34);
+  if(p.s)em('💫',o.x,o.y-52,24);if(p.d)em('💉',o.x+24,o.y-16,22);
+  if(p.c>0){g.strokeStyle='#ffd54f';g.lineWidth=5;g.beginPath();g.arc(o.x,o.y,30,-1.57,-1.57+p.c/2*6.28);g.stroke()}}
+ let T=null;if(S.st=='play'){if(my.d)T=Z;else if(my.v.every(x=>x))T=ST;else{let b=1e9;for(const i of S.i)if(!my.v[i[1]]){const d=Math.hypot(i[2]-pos.x,i[3]-pos.y);if(d<b){b=d;T={x:i[2],y:i[3]}}}}}
+ if(T){const a=Math.atan2(T.y-pos.y,T.x-pos.x);g.fillStyle='#ffd54f';g.save();g.translate(pos.x+Math.cos(a)*58,pos.y+Math.sin(a)*58);g.rotate(a);g.beginPath();g.moveTo(11,0);g.lineTo(-8,-9);g.lineTo(-8,9);g.fill();g.restore()}
+ g.restore();
+ if(jo){g.strokeStyle='#ffffff55';g.lineWidth=3;g.beginPath();g.arc(jo.x,jo.y,55,0,7);g.stroke();dot(jo.cx,jo.cy,24,'#ffffff66')}
+ if(performance.now()<tt){g.font='bold 28px system-ui';g.fillStyle='#ffd54f';g.fillText(toast,w/2,h*.62)}
+ $('inv').textContent=K.map((e,i)=>my.v[i]?e:'▫️').join(' ')+(my.d?' 💉':'');
+ $('top').textContent='🪙'+coins+'  کد: '+S.code+'  👥'+S.p.length;
+ $('hint').textContent=S.st!='play'?'':my.s?'گاز گرفته شدی! 😵':my.d?'دارو آماده‌ست! زامبی رو پیدا کن و بهش نزدیک شو 💉':my.v.every(x=>x)?'برو ایستگاه ساخت 🧪':'از هر مواد یکی جمع کن';
+ $('msg').style.display=S.st=='play'?'none':'block';$('go').style.display=S.st=='lobby'?'inline-block':'none';
+ $('mt').textContent=S.st=='lobby'?'منتظر بازیکن‌ها… کد اتاق: '+S.code:'🏆 '+S.w+' زامبی رو درمان کرد! ('+S.tm+' ثانیه) — دور بعد شروع می‌شه'}
+requestAnimationFrame(loop);
+</script></body></html>
